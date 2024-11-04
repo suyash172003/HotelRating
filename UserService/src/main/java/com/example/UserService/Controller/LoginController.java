@@ -1,9 +1,11 @@
 package com.example.UserService.Controller;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,9 +20,11 @@ import org.springframework.web.client.RestTemplate;
 import com.example.UserService.UserServiceApplication;
 import com.example.UserService.Model.Login;
 import com.example.UserService.Model.Rating;
+import com.example.UserService.Model.Hotel.Hotel;
 import com.example.UserService.Repository.LoginRepository;
 
 import ch.qos.logback.classic.Logger;
+import feign.Feign;
 
 @RestController
 public class LoginController {
@@ -30,6 +34,9 @@ public class LoginController {
 	
 	@Autowired
 	RestTemplate restTemplate;
+	
+	@Autowired
+	FeignService fiegn;
 	
 	@PostMapping("/register")
 	private ResponseEntity<String> storeUser(@RequestBody Login login){
@@ -41,9 +48,16 @@ public class LoginController {
 	@GetMapping("/register/{id}")
 	private Optional<Login> getUser(@PathVariable String id){
 		Login login=loginRepo.findById(id).get();
-		ArrayList<Rating> data=restTemplate.getForObject("http://localhost:8083/rating/userId/c0677428-5558-4fe3-b10a-405b18def886", ArrayList.class);
-		login.setRating(data);
+//		Rating[] array=restTemplate.getForObject("http://RATINGSERVICE/rating/userId/"+login.getUserId(), Rating[].class);
+		List<Rating> data=fiegn.getByUserId(login.getUserId());
+		List<Rating> list=data.stream().map(rating->{
+		   Hotel hotelData=restTemplate.getForObject("http://HOTEL/hotel/"+rating.getHotelId(), Hotel.class);
+		   rating.setHotel(hotelData);
+		   return rating;
+		}).collect(Collectors.toList());
+		login.setRating((ArrayList<Rating>) list);
 		return loginRepo.findById(id);
+		
 	}
 	
 	@GetMapping("/register")
